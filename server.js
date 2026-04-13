@@ -557,11 +557,12 @@ function handlePacket(packet, clientId, setLogin) {
         featuresJson: JSON.stringify([])
       };
     
-    // ResponseFeaturesTemporaryInit - empty response is OK
+    // ResponseFeaturesTemporaryInit expects: set features_temporary(data:String) - JSON string
     case 'api.featuresTemporary.init.RequestFeaturesTemporaryInit':
       return {
         _className: 'api.featuresTemporary.init.ResponseFeaturesTemporaryInit',
-        reqId: reqId
+        reqId: reqId,
+        features_temporary: JSON.stringify([])
       };
     
     // ================== COLLECTIONS ==================
@@ -583,10 +584,12 @@ function handlePacket(packet, clientId, setLogin) {
       };
     
     // ================== WHEEL OF FORTUNE ==================
+    // ResponseWheelOfFortuneInit expects: set rewards_json(value:String) - JSON array
     case 'api.wheel_of_fortune.init.RequestWheelOfFortuneInit':
       return {
         _className: 'api.wheel_of_fortune.init.ResponseWheelOfFortuneInit',
-        reqId: reqId
+        reqId: reqId,
+        rewards_json: JSON.stringify([])
       };
     
     // ================== FISHES ==================
@@ -598,10 +601,12 @@ function handlePacket(packet, clientId, setLogin) {
       };
     
     // ================== ADVERTISING ==================
+    // ResponseAdvertisingInit expects: set data(value:String)
     case 'api.advertising.init.RequestAdvertisingInit':
       return {
         _className: 'api.advertising.init.ResponseAdvertisingInit',
-        reqId: reqId
+        reqId: reqId,
+        data: JSON.stringify({})
       };
     
     // ================== ANNOUNCEMENTS ==================
@@ -625,10 +630,13 @@ function handlePacket(packet, clientId, setLogin) {
       };
     
     // ================== FURNITURE FACTORY ==================
+    // ResponseFurnitureFactoryBase expects: skip_time_price_fishcoins, reward_time_left
     case 'api.furniture_factory.get_info.RequestFurnitureFactoryGetInfo':
       return {
         _className: 'api.furniture_factory.get_info.ResponseFurnitureFactoryGetInfo',
-        reqId: reqId
+        reqId: reqId,
+        skip_time_price_fishcoins: 0,
+        reward_time_left: 0
       };
     
     // ================== QUESTS ==================
@@ -651,24 +659,30 @@ function handlePacket(packet, clientId, setLogin) {
       };
     
     // ================== SALES ==================
+    // ResponseSalesInit expects: set data(value:String)
     case 'api.sales.init.RequestSalesInit':
       return {
         _className: 'api.sales.init.ResponseSalesInit',
-        reqId: reqId
+        reqId: reqId,
+        data: JSON.stringify({})
       };
     
     // ================== HOLIDAYS ==================
+    // ResponseHolidaysInit expects: set data(value:String) - JSON array
     case 'api.holidays.init.RequestHolidaysInit':
       return {
         _className: 'api.holidays.init.ResponseHolidaysInit',
-        reqId: reqId
+        reqId: reqId,
+        data: JSON.stringify([])
       };
     
     // ================== PERIODIC FEATURES ==================
+    // ResponsePeriodicFeaturesInit expects: set data(value:String)
     case 'api.periodicFeatures.init.RequestPeriodicFeaturesInit':
       return {
         _className: 'api.periodicFeatures.init.ResponsePeriodicFeaturesInit',
-        reqId: reqId
+        reqId: reqId,
+        data: JSON.stringify({})
       };
     
     // ================== MONEY TREE ==================
@@ -683,11 +697,13 @@ function handlePacket(packet, clientId, setLogin) {
       };
     
     // ================== MONSTER FISHES ==================
+    // ResponseMonsterFishesInit expects: set data(value:String) - JSON with {info: "[]", progress: "[]"}
     case 'api.monster_fishes.init.RequestMonsterFishesInit':
     case 'api.monsterFishes.init.RequestMonsterFishesInit':
       return {
-        _className: 'api.monster_fishes.init.ResponseMonsterFishesInit',
-        reqId: reqId
+        _className: 'api.monsterFishes.init.ResponseMonsterFishesInit',
+        reqId: reqId,
+        data: JSON.stringify({ info: JSON.stringify([]), progress: JSON.stringify([]) })
       };
     
     // ================== TOURNAMENTS ==================

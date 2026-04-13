@@ -686,8 +686,9 @@ function handlePacket(packet, clientId, setLogin) {
     
     // ================== MONSTER FISHES ==================
     case 'api.monster_fishes.init.RequestMonsterFishesInit':
+    case 'api.monsterFishes.init.RequestMonsterFishesInit':
       return {
-        _className: 'api.monster_fishes.init.ResponseMonsterFishesInit',
+        _className: 'api.monsterFishes.init.ResponseMonsterFishesInit',
         reqId: reqId
       };
     
@@ -726,6 +727,79 @@ function handlePacket(packet, clientId, setLogin) {
       return {
         _className: 'api.locations.change_position.ResponseLocationChangePosition',
         reqId: reqId
+      };
+    
+    case 'api.locations.enter.RequestLocationEnter':
+    case 'api.location.enter.RequestLocationEnter': {
+      const locationId = params.locationId || params.id || 1;
+      return {
+        _className: 'api.locations.enter.ResponseLocationEnter',
+        reqId: reqId,
+        location: {
+          id: locationId,
+          name: 'Trout Farm',
+          type: 'fishing',
+          worldId: 1,
+          mapId: locationId,
+          background: 'trout_farm',
+          music: 'fishing_theme',
+          fishingSpots: [
+            { id: 1, x: 200, y: 300, type: 'normal' },
+            { id: 2, x: 400, y: 350, type: 'normal' },
+            { id: 3, x: 600, y: 300, type: 'premium' }
+          ],
+          npcs: [],
+          players: []
+        },
+        player: {
+          x: 300,
+          y: 400
+        }
+      };
+    }
+    
+    case 'api.locations.getInfo.RequestLocationGetInfo':
+    case 'api.location.getInfo.RequestLocationGetInfo': {
+      const locId = params.locationId || params.id || 1;
+      return {
+        _className: 'api.locations.getInfo.ResponseLocationGetInfo',
+        reqId: reqId,
+        location: {
+          id: locId,
+          name: 'Trout Farm',
+          type: 'fishing',
+          worldId: 1,
+          players: [],
+          fishingSpots: []
+        }
+      };
+    }
+    
+    case 'api.locations.init.RequestLocationsInit':
+      return {
+        _className: 'api.locations.init.ResponseLocationsInit',
+        reqId: reqId,
+        locations: [
+          { id: 1, name: 'Trout Farm', type: 'fishing', unlocked: true },
+          { id: 2, name: 'Pyramid Lake', type: 'fishing', unlocked: true },
+          { id: 3, name: 'Amazon River', type: 'fishing', unlocked: true },
+          { id: 4, name: 'Arctic Bay', type: 'fishing', unlocked: true },
+          { id: 5, name: 'Coral Reef', type: 'fishing', unlocked: true }
+        ]
+      };
+    
+    case 'api.map.init.RequestMapInit':
+    case 'api.worldMap.init.RequestWorldMapInit':
+      return {
+        _className: 'api.worldMap.init.ResponseWorldMapInit',
+        reqId: reqId,
+        areas: [
+          { id: 1, name: 'Trout Farm', x: 650, y: 320, unlocked: true },
+          { id: 2, name: 'Pyramid', x: 380, y: 380, unlocked: true },
+          { id: 3, name: 'Amazon', x: 480, y: 480, unlocked: true },
+          { id: 4, name: 'Arctic', x: 850, y: 280, unlocked: true },
+          { id: 5, name: 'Asia', x: 750, y: 400, unlocked: true }
+        ]
       };
     
     // ================== PING/HEARTBEAT ==================

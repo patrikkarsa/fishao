@@ -484,7 +484,8 @@ function handlePacket(packet, clientId, setLogin) {
     return null;
   }
   
-  const cmd = packet.c || packet.cmd || packet.command;
+  // Support both {c, p} format and {_className, ...fields} format
+  const cmd = packet._className || packet.c || packet.cmd || packet.command;
   
   if (!cmd) {
     console.log(`[TCP] Unknown packet structure from client ${clientId}:`, packet);
@@ -493,261 +494,247 @@ function handlePacket(packet, clientId, setLogin) {
   
   console.log(`[TCP] Handling command: ${cmd}`);
   
-  // Get parameters (p field or the whole packet minus c)
-  const params = packet.p || packet;
+  // Get parameters - for _className format, the packet itself contains the params
+  const params = packet._className ? packet : (packet.p || packet);
+  const reqId = params.reqId; // Track request ID for responses
   
   switch (cmd) {
     // ================== LOGIN ==================
-    case 'cr.LoginReq':
+    case 'cr.LoginReq': {
       const login = params.login || 'guest';
       setLogin(login);
       return {
-        c: 'sr.LoginSuccessResp',
-        p: {
-          login: login,
-          sid: 'LOCAL-SID-' + Date.now(),
-          lang: params.lang || 'en',
-          isGuest: false,
-          needLog: true,
-          unreadPrivateMessages: 0,
-          emailActivation: 1,
-          maintenanceIn: 0,
-          maintenanceTime: 0,
-          referralsDisabled: false
-        }
+        _className: 'sr.LoginSuccessResp',
+        reqId: reqId,
+        login: login,
+        sid: 'LOCAL-SID-' + Date.now(),
+        lang: params.lang || 'en',
+        isGuest: false,
+        needLog: true,
+        unreadPrivateMessages: 0,
+        emailActivation: 1,
+        maintenanceIn: 0,
+        maintenanceTime: 0,
+        referralsDisabled: false
       };
+    }
     
     // ================== WORLD INIT ==================
     case 'api.worlds.init.RequestWorldsInit':
       return {
-        c: 'api.worlds.init.ResponseWorldsInit',
-        p: {
-          worlds: [
-            {
-              id: 1,
-              name: 'Local World',
-              onlinePlayers: 1,
-              capacity: 100
-            }
-          ],
-          selectedWorldId: 1,
-          player: {
+        _className: 'api.worlds.init.ResponseWorldsInit',
+        reqId: reqId,
+        worlds: [
+          {
             id: 1,
-            login: 'Player',
-            level: 1,
-            xp: 0,
-            gold: 10000,
-            cash: 1000,
-            energy: 100,
-            maxEnergy: 100,
-            location: {
-              worldId: 1,
-              mapId: 1,
-              x: 100,
-              y: 100
-            },
-            inventory: [],
-            equipment: {},
-            clothes: [],
-            stats: {}
+            name: 'Local World',
+            onlinePlayers: 1,
+            capacity: 100
           }
+        ],
+        selectedWorldId: 1,
+        player: {
+          id: 1,
+          login: 'Player',
+          level: 1,
+          xp: 0,
+          gold: 10000,
+          cash: 1000,
+          energy: 100,
+          maxEnergy: 100,
+          location: {
+            worldId: 1,
+            mapId: 1,
+            x: 100,
+            y: 100
+          },
+          inventory: [],
+          equipment: {},
+          clothes: [],
+          stats: {}
         }
       };
     
     // ================== FISHING LINE ==================
     case 'api.fishingLine.init.RequestFishingLineInit':
       return {
-        c: 'api.fishingLine.init.ResponseFishingLineInit',
-        p: {}
+        _className: 'api.fishingLine.init.ResponseFishingLineInit',
+        reqId: reqId
       };
     
     // ================== FEATURES ==================
     case 'api.features.update.RequestFeaturesUpdate':
       return {
-        c: 'api.features.update.ResponseFeaturesUpdate',
-        p: {
-          features: []
-        }
+        _className: 'api.features.update.ResponseFeaturesUpdate',
+        reqId: reqId,
+        features: []
       };
     
     case 'api.featuresTemporary.init.RequestFeaturesTemporaryInit':
       return {
-        c: 'api.featuresTemporary.init.ResponseFeaturesTemporaryInit',
-        p: {}
+        _className: 'api.featuresTemporary.init.ResponseFeaturesTemporaryInit',
+        reqId: reqId
       };
     
     // ================== COLLECTIONS ==================
     case 'api.collections.init.RequestCollectionsInit':
       return {
-        c: 'api.collections.init.ResponseCollectionsInit',
-        p: {
-          collections: []
-        }
+        _className: 'api.collections.init.ResponseCollectionsInit',
+        reqId: reqId,
+        collections: []
       };
     
     // ================== TUTORIAL ==================
     case 'api.tutorial.init.RequestTutorialInit':
       return {
-        c: 'api.tutorial.init.ResponseTutorialInit',
-        p: {
-          completed: true
-        }
+        _className: 'api.tutorial.init.ResponseTutorialInit',
+        reqId: reqId,
+        completed: true
       };
     
     // ================== WHEEL OF FORTUNE ==================
     case 'api.wheel_of_fortune.init.RequestWheelOfFortuneInit':
       return {
-        c: 'api.wheel_of_fortune.init.ResponseWheelOfFortuneInit',
-        p: {}
+        _className: 'api.wheel_of_fortune.init.ResponseWheelOfFortuneInit',
+        reqId: reqId
       };
     
     // ================== FISHES ==================
     case 'api.fishes.getRelevant.RequestFishesGetRelevant':
       return {
-        c: 'api.fishes.getRelevant.ResponseFishesGetRelevant',
-        p: {
-          fishes: []
-        }
+        _className: 'api.fishes.getRelevant.ResponseFishesGetRelevant',
+        reqId: reqId,
+        fishes: []
       };
     
     // ================== ADVERTISING ==================
     case 'api.advertising.init.RequestAdvertisingInit':
       return {
-        c: 'api.advertising.init.ResponseAdvertisingInit',
-        p: {}
+        _className: 'api.advertising.init.ResponseAdvertisingInit',
+        reqId: reqId
       };
     
     // ================== ANNOUNCEMENTS ==================
     case 'api.announcements.init.RequestAnnouncements':
       return {
-        c: 'api.announcements.init.ResponseAnnouncements',
-        p: {
-          announcements: []
-        }
+        _className: 'api.announcements.init.ResponseAnnouncements',
+        reqId: reqId,
+        announcements: []
       };
     
     // ================== CLUBS ==================
     case 'api.clubs.init.RequestClubsInit':
       return {
-        c: 'api.clubs.init.ResponseClubsInit',
-        p: {
-          clubs: []
-        }
+        _className: 'api.clubs.init.ResponseClubsInit',
+        reqId: reqId,
+        clubs: []
       };
     
     // ================== FURNITURE FACTORY ==================
     case 'api.furniture_factory.get_info.RequestFurnitureFactoryGetInfo':
       return {
-        c: 'api.furniture_factory.get_info.ResponseFurnitureFactoryGetInfo',
-        p: {}
+        _className: 'api.furniture_factory.get_info.ResponseFurnitureFactoryGetInfo',
+        reqId: reqId
       };
     
     // ================== QUESTS ==================
     case 'api.quests.init.RequestQuestsInit':
       return {
-        c: 'api.quests.init.ResponseQuestsInit',
-        p: {
-          quests: []
-        }
+        _className: 'api.quests.init.ResponseQuestsInit',
+        reqId: reqId,
+        quests: []
       };
     
     // ================== EVENTS ==================
     case 'api.events.init.RequestEventsInit':
       return {
-        c: 'api.events.init.ResponseEventsInit',
-        p: {
-          events: []
-        }
+        _className: 'api.events.init.ResponseEventsInit',
+        reqId: reqId,
+        events: []
       };
     
     // ================== SALES ==================
     case 'api.sales.init.RequestSalesInit':
       return {
-        c: 'api.sales.init.ResponseSalesInit',
-        p: {
-          sales: []
-        }
+        _className: 'api.sales.init.ResponseSalesInit',
+        reqId: reqId,
+        sales: []
       };
     
     // ================== HOLIDAYS ==================
     case 'api.holidays.init.RequestHolidaysInit':
       return {
-        c: 'api.holidays.init.ResponseHolidaysInit',
-        p: {
-          holidays: []
-        }
+        _className: 'api.holidays.init.ResponseHolidaysInit',
+        reqId: reqId,
+        holidays: []
       };
     
     // ================== PERIODIC FEATURES ==================
     case 'api.periodicFeatures.init.RequestPeriodicFeaturesInit':
       return {
-        c: 'api.periodicFeatures.init.ResponsePeriodicFeaturesInit',
-        p: {
-          periodicFeatures: []
-        }
+        _className: 'api.periodicFeatures.init.ResponsePeriodicFeaturesInit',
+        reqId: reqId,
+        periodicFeatures: []
       };
     
     // ================== MONEY TREE ==================
     case 'api.moneyTree.init.RequestMoneyTreeInit':
       return {
-        c: 'api.moneyTree.init.ResponseMoneyTreeInit',
-        p: {}
+        _className: 'api.moneyTree.init.ResponseMoneyTreeInit',
+        reqId: reqId
       };
     
     // ================== MONSTER FISHES ==================
     case 'api.monster_fishes.init.RequestMonsterFishesInit':
       return {
-        c: 'api.monster_fishes.init.ResponseMonsterFishesInit',
-        p: {}
+        _className: 'api.monster_fishes.init.ResponseMonsterFishesInit',
+        reqId: reqId
       };
     
     // ================== TOURNAMENTS ==================
     case 'api.tournaments.getRelevant.RequestTournamentGetRelevant':
       return {
-        c: 'api.tournaments.getRelevant.ResponseTournamentGetRelevant',
-        p: {
-          tournaments: []
-        }
+        _className: 'api.tournaments.getRelevant.ResponseTournamentGetRelevant',
+        reqId: reqId,
+        tournaments: []
       };
     
     // ================== INTERIOR ==================
     case 'api.interior.get_info.RequestInteriorGetInfo':
       return {
-        c: 'api.interior.get_info.ResponseInteriorGetInfo',
-        p: {}
+        _className: 'api.interior.get_info.ResponseInteriorGetInfo',
+        reqId: reqId
       };
     
     // ================== BREEDING ==================
     case 'api.breeding.getCurrent.RequestBreedingGetCurrent':
       return {
-        c: 'api.breeding.getCurrent.ResponseBreedingGetCurrent',
-        p: {}
+        _className: 'api.breeding.getCurrent.ResponseBreedingGetCurrent',
+        reqId: reqId
       };
     
     // ================== PLATFORM ==================
     case 'api.platform.generateUserName.RequestPlatformGenerateUserName':
       return {
-        c: 'api.platform.generateUserName.ResponsePlatformGenerateUserName',
-        p: {
-          userName: 'Player' + Math.floor(Math.random() * 10000)
-        }
+        _className: 'api.platform.generateUserName.ResponsePlatformGenerateUserName',
+        reqId: reqId,
+        userName: 'Player' + Math.floor(Math.random() * 10000)
       };
     
     // ================== LOCATION ==================
     case 'api.locations.change_position.RequestLocationChangePosition':
       return {
-        c: 'api.locations.change_position.ResponseLocationChangePosition',
-        p: {}
+        _className: 'api.locations.change_position.ResponseLocationChangePosition',
+        reqId: reqId
       };
     
     // ================== PING/HEARTBEAT ==================
     case 'ping':
     case 'heartbeat':
       return {
-        c: 'pong',
-        p: {
-          timestamp: Date.now()
-        }
+        _className: 'pong',
+        reqId: reqId,
+        timestamp: Date.now()
       };
     
     // ================== DEFAULT ==================
@@ -755,8 +742,8 @@ function handlePacket(packet, clientId, setLogin) {
       console.log(`[TCP] Unhandled command: ${cmd}`);
       // Return a generic OK response for unknown commands
       return {
-        c: cmd.replace('Request', 'Response'),
-        p: {}
+        _className: cmd.replace('Request', 'Response'),
+        reqId: reqId
       };
   }
 }

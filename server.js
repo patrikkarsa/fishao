@@ -593,11 +593,12 @@ function handlePacket(packet, clientId, setLogin) {
       };
     
     // ================== FISHES ==================
+    // Use JSON string for consistency with other handlers
     case 'api.fishes.getRelevant.RequestFishesGetRelevant':
       return {
         _className: 'api.fishes.getRelevant.ResponseFishesGetRelevant',
         reqId: reqId,
-        fishes: []
+        fishes: JSON.stringify([])
       };
     
     // ================== ADVERTISING ==================

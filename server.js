@@ -520,56 +520,44 @@ function handlePacket(packet, clientId, setLogin) {
     }
     
     // ================== WORLD INIT ==================
+    // ResponseWorldsInit expects: set list(value:Object) - object with JSON strings for each world
     case 'api.worlds.init.RequestWorldsInit':
       return {
         _className: 'api.worlds.init.ResponseWorldsInit',
         reqId: reqId,
-        worlds: [
-          {
+        list: {
+          0: JSON.stringify({
             id: 1,
             name: 'Local World',
             onlinePlayers: 1,
             capacity: 100
-          }
-        ],
-        selectedWorldId: 1,
-        player: {
-          id: 1,
-          login: 'Player',
-          level: 1,
-          xp: 0,
-          gold: 10000,
-          cash: 1000,
-          energy: 100,
-          maxEnergy: 100,
-          location: {
-            worldId: 1,
-            mapId: 1,
-            x: 100,
-            y: 100
-          },
-          inventory: [],
-          equipment: {},
-          clothes: [],
-          stats: {}
+          })
         }
       };
     
     // ================== FISHING LINE ==================
+    // ResponseFishingLineInit extends ResponseImprovable
+    // expects: currentLevel, timeToNextUpgrade, levelsData (JSON string), color
     case 'api.fishingLine.init.RequestFishingLineInit':
       return {
         _className: 'api.fishingLine.init.ResponseFishingLineInit',
-        reqId: reqId
+        reqId: reqId,
+        currentLevel: 1,
+        timeToNextUpgrade: 0,
+        levelsData: JSON.stringify([]),
+        color: 'blue'
       };
     
     // ================== FEATURES ==================
+    // ResponseFeaturesUpdate expects: set featuresJson(value:String)
     case 'api.features.update.RequestFeaturesUpdate':
       return {
         _className: 'api.features.update.ResponseFeaturesUpdate',
         reqId: reqId,
-        features: []
+        featuresJson: JSON.stringify([])
       };
     
+    // ResponseFeaturesTemporaryInit - empty response is OK
     case 'api.featuresTemporary.init.RequestFeaturesTemporaryInit':
       return {
         _className: 'api.featuresTemporary.init.ResponseFeaturesTemporaryInit',
@@ -577,19 +565,21 @@ function handlePacket(packet, clientId, setLogin) {
       };
     
     // ================== COLLECTIONS ==================
+    // ResponseCollectionsInit expects: list (String)
     case 'api.collections.init.RequestCollectionsInit':
       return {
         _className: 'api.collections.init.ResponseCollectionsInit',
         reqId: reqId,
-        collections: []
+        list: JSON.stringify([])
       };
     
     // ================== TUTORIAL ==================
+    // ResponseTutorialInit expects: set list(value:String) - JSON string
     case 'api.tutorial.init.RequestTutorialInit':
       return {
         _className: 'api.tutorial.init.ResponseTutorialInit',
         reqId: reqId,
-        completed: true
+        list: JSON.stringify([])
       };
     
     // ================== WHEEL OF FORTUNE ==================
@@ -615,19 +605,23 @@ function handlePacket(packet, clientId, setLogin) {
       };
     
     // ================== ANNOUNCEMENTS ==================
+    // ResponseAnnouncements expects: set data(value:String) - JSON string with {list: []}
     case 'api.announcements.init.RequestAnnouncements':
       return {
         _className: 'api.announcements.init.ResponseAnnouncements',
         reqId: reqId,
-        announcements: []
+        data: JSON.stringify({ list: [] })
       };
     
     // ================== CLUBS ==================
+    // ResponseClubsInit expects: levels_data (JSON string), create_cost (int), club_info (JSON string)
     case 'api.clubs.init.RequestClubsInit':
       return {
         _className: 'api.clubs.init.ResponseClubsInit',
         reqId: reqId,
-        clubs: []
+        levels_data: JSON.stringify([]),
+        create_cost: 1000,
+        club_info: null
       };
     
     // ================== FURNITURE FACTORY ==================
@@ -638,88 +632,99 @@ function handlePacket(packet, clientId, setLogin) {
       };
     
     // ================== QUESTS ==================
+    // ResponseQuestsInit expects: set questsData(value:String) - JSON string
     case 'api.quests.init.RequestQuestsInit':
       return {
         _className: 'api.quests.init.ResponseQuestsInit',
         reqId: reqId,
-        quests: []
+        questsData: JSON.stringify({})
       };
     
     // ================== EVENTS ==================
+    // ResponseEventsInit expects: set data(value:String) - JSON array string, data_coefficients (JSON string)
     case 'api.events.init.RequestEventsInit':
       return {
         _className: 'api.events.init.ResponseEventsInit',
         reqId: reqId,
-        events: []
+        data: JSON.stringify([]),
+        data_coefficients: JSON.stringify([])
       };
     
     // ================== SALES ==================
     case 'api.sales.init.RequestSalesInit':
       return {
         _className: 'api.sales.init.ResponseSalesInit',
-        reqId: reqId,
-        sales: []
+        reqId: reqId
       };
     
     // ================== HOLIDAYS ==================
     case 'api.holidays.init.RequestHolidaysInit':
       return {
         _className: 'api.holidays.init.ResponseHolidaysInit',
-        reqId: reqId,
-        holidays: []
+        reqId: reqId
       };
     
     // ================== PERIODIC FEATURES ==================
     case 'api.periodicFeatures.init.RequestPeriodicFeaturesInit':
       return {
         _className: 'api.periodicFeatures.init.ResponsePeriodicFeaturesInit',
-        reqId: reqId,
-        periodicFeatures: []
+        reqId: reqId
       };
     
     // ================== MONEY TREE ==================
+    // ResponseMoneyTreeInit extends ResponseImprovable
     case 'api.moneyTree.init.RequestMoneyTreeInit':
       return {
         _className: 'api.moneyTree.init.ResponseMoneyTreeInit',
-        reqId: reqId
+        reqId: reqId,
+        currentLevel: 1,
+        timeToNextUpgrade: 0,
+        levelsData: JSON.stringify([])
       };
     
     // ================== MONSTER FISHES ==================
     case 'api.monster_fishes.init.RequestMonsterFishesInit':
     case 'api.monsterFishes.init.RequestMonsterFishesInit':
       return {
-        _className: 'api.monsterFishes.init.ResponseMonsterFishesInit',
+        _className: 'api.monster_fishes.init.ResponseMonsterFishesInit',
         reqId: reqId
       };
     
     // ================== TOURNAMENTS ==================
+    // ResponseTournamentGetRelevant expects: set tournament_info(value:String) - JSON string
     case 'api.tournaments.getRelevant.RequestTournamentGetRelevant':
       return {
         _className: 'api.tournaments.getRelevant.ResponseTournamentGetRelevant',
         reqId: reqId,
-        tournaments: []
+        tournament_info: null
       };
     
     // ================== INTERIOR ==================
+    // ResponseInteriorGetInfo expects: interior_json (JSON string), is_decoration_shop (Boolean)
     case 'api.interior.get_info.RequestInteriorGetInfo':
       return {
         _className: 'api.interior.get_info.ResponseInteriorGetInfo',
-        reqId: reqId
+        reqId: reqId,
+        interior_json: JSON.stringify([]),
+        is_decoration_shop: false
       };
     
     // ================== BREEDING ==================
+    // ResponseBreedingGetCurrent expects: set fishJson(value:String) - JSON string
     case 'api.breeding.getCurrent.RequestBreedingGetCurrent':
       return {
         _className: 'api.breeding.getCurrent.ResponseBreedingGetCurrent',
-        reqId: reqId
+        reqId: reqId,
+        fishJson: null
       };
     
     // ================== PLATFORM ==================
+    // ResponsePlatformGenerateUserName expects: user_name (String)
     case 'api.platform.generateUserName.RequestPlatformGenerateUserName':
       return {
         _className: 'api.platform.generateUserName.ResponsePlatformGenerateUserName',
         reqId: reqId,
-        userName: 'Player' + Math.floor(Math.random() * 10000)
+        user_name: 'Player' + Math.floor(Math.random() * 10000)
       };
     
     // ================== LOCATION ==================

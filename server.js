@@ -42,6 +42,301 @@ const clients = new Map();
 let clientIdCounter = 1;
 
 // ============================================
+// AMF3 DECODER - Parse Flash AMF3 binary format
+// ============================================
+class AMF3Decoder {
+  constructor(buffer) {
+    this.buffer = buffer;
+    this.pos = 0;
+    this.stringRefs = [];
+    this.objectRefs = [];
+    this.traitRefs = [];
+  }
+
+  readByte() {
+    return this.buffer[this.pos++];
+  }
+
+  readU29() {
+    let result = 0;
+    for (let i = 0; i < 4; i++) {
+      const byte = this.readByte();
+      if (i < 3) {
+        result = (result << 7) | (byte & 0x7F);
+        if (!(byte & 0x80)) break;
+      } else {
+        result = (result << 8) | byte;
+      }
+    }
+    return result;
+  }
+
+  readString() {
+    const ref = this.readU29();
+    if ((ref & 1) === 0) {
+      return this.stringRefs[ref >> 1];
+    }
+    const len = ref >> 1;
+    if (len === 0) return '';
+    const str = this.buffer.toString('utf8', this.pos, this.pos + len);
+    this.pos += len;
+    this.stringRefs.push(str);
+    return str;
+  }
+
+  readValue() {
+    const marker = this.readByte();
+    
+    switch (marker) {
+      case 0x00: // undefined
+        return undefined;
+      case 0x01: // null
+        return null;
+      case 0x02: // false
+        return false;
+      case 0x03: // true
+        return true;
+      case 0x04: // integer
+        const i = this.readU29();
+        return (i << 3) >> 3; // sign extend
+      case 0x05: // double
+        const dv = new DataView(this.buffer.buffer, this.buffer.byteOffset + this.pos, 8);
+        this.pos += 8;
+        return dv.getFloat64(0, false);
+      case 0x06: // string
+        return this.readString();
+      case 0x08: // date
+        const dateRef = this.readU29();
+        if ((dateRef & 1) === 0) {
+          return this.objectRefs[dateRef >> 1];
+        }
+        const dv2 = new DataView(this.buffer.buffer, this.buffer.byteOffset + this.pos, 8);
+        this.pos += 8;
+        const date = new Date(dv2.getFloat64(0, false));
+        this.objectRefs.push(date);
+        return date;
+      case 0x09: // array
+        return this.readArray();
+      case 0x0A: // object
+        return this.readObject();
+      case 0x0C: // byte array
+        return this.readByteArray();
+      default:
+        console.log(`[AMF3] Unknown marker: 0x${marker.toString(16)} at pos ${this.pos - 1}`);
+        return null;
+    }
+  }
+
+  readArray() {
+    const ref = this.readU29();
+    if ((ref & 1) === 0) {
+      return this.objectRefs[ref >> 1];
+    }
+    const len = ref >> 1;
+    const arr = [];
+    this.objectRefs.push(arr);
+    
+    // Read associative portion (string keys)
+    let key = this.readString();
+    while (key !== '') {
+      arr[key] = this.readValue();
+      key = this.readString();
+    }
+    
+    // Read dense portion
+    for (let i = 0; i < len; i++) {
+      arr.push(this.readValue());
+    }
+    
+    return arr;
+  }
+
+  readObject() {
+    const ref = this.readU29();
+    if ((ref & 1) === 0) {
+      return this.objectRefs[ref >> 1];
+    }
+    
+    const obj = {};
+    this.objectRefs.push(obj);
+    
+    const traitRef = ref >> 1;
+    let traits;
+    
+    if ((traitRef & 1) === 0) {
+      traits = this.traitRefs[traitRef >> 1];
+    } else {
+      traits = {
+        className: this.readString(),
+        dynamic: !!((traitRef >> 1) & 1),
+        externalizable: !!((traitRef >> 1) & 2),
+        properties: []
+      };
+      
+      const propCount = traitRef >> 3;
+      for (let i = 0; i < propCount; i++) {
+        traits.properties.push(this.readString());
+      }
+      
+      this.traitRefs.push(traits);
+    }
+    
+    if (traits.className) {
+      obj._className = traits.className;
+    }
+    
+    // Read sealed properties
+    for (const prop of traits.properties) {
+      obj[prop] = this.readValue();
+    }
+    
+    // Read dynamic properties
+    if (traits.dynamic) {
+      let propName = this.readString();
+      while (propName !== '') {
+        obj[propName] = this.readValue();
+        propName = this.readString();
+      }
+    }
+    
+    return obj;
+  }
+
+  readByteArray() {
+    const ref = this.readU29();
+    if ((ref & 1) === 0) {
+      return this.objectRefs[ref >> 1];
+    }
+    const len = ref >> 1;
+    const bytes = this.buffer.slice(this.pos, this.pos + len);
+    this.pos += len;
+    this.objectRefs.push(bytes);
+    return bytes;
+  }
+}
+
+// ============================================
+// AMF3 ENCODER - Encode to Flash AMF3 binary format
+// ============================================
+class AMF3Encoder {
+  constructor() {
+    this.chunks = [];
+    this.stringRefs = new Map();
+    this.objectRefs = new Map();
+    this.traitRefs = new Map();
+  }
+
+  writeByte(byte) {
+    this.chunks.push(Buffer.from([byte]));
+  }
+
+  writeU29(value) {
+    if (value < 0x80) {
+      this.writeByte(value);
+    } else if (value < 0x4000) {
+      this.writeByte(((value >> 7) & 0x7F) | 0x80);
+      this.writeByte(value & 0x7F);
+    } else if (value < 0x200000) {
+      this.writeByte(((value >> 14) & 0x7F) | 0x80);
+      this.writeByte(((value >> 7) & 0x7F) | 0x80);
+      this.writeByte(value & 0x7F);
+    } else {
+      this.writeByte(((value >> 22) & 0x7F) | 0x80);
+      this.writeByte(((value >> 15) & 0x7F) | 0x80);
+      this.writeByte(((value >> 8) & 0x7F) | 0x80);
+      this.writeByte(value & 0xFF);
+    }
+  }
+
+  writeString(str) {
+    if (str === '') {
+      this.writeU29(1); // empty string, inline
+      return;
+    }
+    
+    if (this.stringRefs.has(str)) {
+      this.writeU29(this.stringRefs.get(str) << 1);
+      return;
+    }
+    
+    this.stringRefs.set(str, this.stringRefs.size);
+    const buf = Buffer.from(str, 'utf8');
+    this.writeU29((buf.length << 1) | 1);
+    this.chunks.push(buf);
+  }
+
+  writeValue(value) {
+    if (value === undefined) {
+      this.writeByte(0x00);
+    } else if (value === null) {
+      this.writeByte(0x01);
+    } else if (value === false) {
+      this.writeByte(0x02);
+    } else if (value === true) {
+      this.writeByte(0x03);
+    } else if (typeof value === 'number') {
+      if (Number.isInteger(value) && value >= -268435456 && value <= 268435455) {
+        this.writeByte(0x04);
+        this.writeU29(value & 0x1FFFFFFF);
+      } else {
+        this.writeByte(0x05);
+        const buf = Buffer.alloc(8);
+        buf.writeDoubleBE(value, 0);
+        this.chunks.push(buf);
+      }
+    } else if (typeof value === 'string') {
+      this.writeByte(0x06);
+      this.writeString(value);
+    } else if (Array.isArray(value)) {
+      this.writeArray(value);
+    } else if (value instanceof Date) {
+      this.writeByte(0x08);
+      this.writeU29(1); // inline
+      const buf = Buffer.alloc(8);
+      buf.writeDoubleBE(value.getTime(), 0);
+      this.chunks.push(buf);
+    } else if (typeof value === 'object') {
+      this.writeObject(value);
+    } else {
+      this.writeByte(0x01); // null for unknown
+    }
+  }
+
+  writeArray(arr) {
+    this.writeByte(0x09);
+    this.writeU29((arr.length << 1) | 1);
+    this.writeString(''); // empty key terminates associative portion
+    for (const item of arr) {
+      this.writeValue(item);
+    }
+  }
+
+  writeObject(obj) {
+    this.writeByte(0x0A);
+    
+    const keys = Object.keys(obj).filter(k => k !== '_className');
+    const className = obj._className || '';
+    
+    // Write traits inline, dynamic
+    // Format: U29 = (propCount << 4) | (dynamic << 3) | (externalizable << 2) | 0b11
+    const traitInfo = (0 << 4) | (1 << 3) | (0 << 2) | 0b11;
+    this.writeU29(traitInfo);
+    this.writeString(className);
+    
+    // Write dynamic properties
+    for (const key of keys) {
+      this.writeString(key);
+      this.writeValue(obj[key]);
+    }
+    this.writeString(''); // empty string terminates dynamic properties
+  }
+
+  getBuffer() {
+    return Buffer.concat(this.chunks);
+  }
+}
+
+// ============================================
 // HTTP SERVER - Serves static files
 // ============================================
 const httpServer = http.createServer((req, res) => {
@@ -134,17 +429,20 @@ const tcpServer = net.createServer((socket) => {
       buffer = buffer.slice(2 + packetLength);
       
       try {
-        const jsonStr = packetData.toString('utf8');
-        console.log(`[TCP] Client ${clientId} -> Server: ${jsonStr}`);
+        // Decode AMF3 packet
+        const decoder = new AMF3Decoder(packetData);
+        const packet = decoder.readValue();
         
-        const packet = JSON.parse(jsonStr);
+        console.log(`[TCP] Client ${clientId} -> Server:`, JSON.stringify(packet, null, 2));
+        
         const response = handlePacket(packet, clientId, (login) => { playerLogin = login; });
         
         if (response) {
           sendResponse(socket, response, clientId);
         }
       } catch (err) {
-        console.log(`[TCP] Error parsing packet from client ${clientId}: ${err.message}`);
+        console.log(`[TCP] Error parsing AMF3 packet from client ${clientId}: ${err.message}`);
+        console.log(`[TCP] Raw packet hex: ${packetData.toString('hex')}`);
       }
     }
   });
@@ -161,18 +459,19 @@ const tcpServer = net.createServer((socket) => {
 });
 
 // ============================================
-// SEND RESPONSE - 4-byte length prefix
+// SEND RESPONSE - 4-byte length prefix + AMF3
 // ============================================
 function sendResponse(socket, data, clientId) {
-  const jsonStr = JSON.stringify(data);
-  const jsonBuffer = Buffer.from(jsonStr, 'utf8');
+  const encoder = new AMF3Encoder();
+  encoder.writeValue(data);
+  const amfBuffer = encoder.getBuffer();
   
   // Create packet with 4-byte length prefix
-  const packet = Buffer.alloc(4 + jsonBuffer.length);
-  packet.writeUInt32BE(jsonBuffer.length, 0);
-  jsonBuffer.copy(packet, 4);
+  const packet = Buffer.alloc(4 + amfBuffer.length);
+  packet.writeUInt32BE(amfBuffer.length, 0);
+  amfBuffer.copy(packet, 4);
   
-  console.log(`[TCP] Server -> Client ${clientId}: ${jsonStr}`);
+  console.log(`[TCP] Server -> Client ${clientId}:`, JSON.stringify(data, null, 2));
   socket.write(packet);
 }
 
@@ -180,6 +479,11 @@ function sendResponse(socket, data, clientId) {
 // PACKET HANDLER - Route packets to handlers
 // ============================================
 function handlePacket(packet, clientId, setLogin) {
+  if (!packet || typeof packet !== 'object') {
+    console.log(`[TCP] Invalid packet from client ${clientId}:`, packet);
+    return null;
+  }
+  
   const cmd = packet.c || packet.cmd || packet.command;
   
   if (!cmd) {
@@ -189,17 +493,20 @@ function handlePacket(packet, clientId, setLogin) {
   
   console.log(`[TCP] Handling command: ${cmd}`);
   
+  // Get parameters (p field or the whole packet minus c)
+  const params = packet.p || packet;
+  
   switch (cmd) {
     // ================== LOGIN ==================
     case 'cr.LoginReq':
-      const login = packet.p?.login || packet.login || 'guest';
+      const login = params.login || 'guest';
       setLogin(login);
       return {
         c: 'sr.LoginSuccessResp',
         p: {
           login: login,
-          sid: 'LOCAL-SID-12345',
-          lang: 'en',
+          sid: 'LOCAL-SID-' + Date.now(),
+          lang: params.lang || 'en',
           isGuest: false,
           needLog: true,
           unreadPrivateMessages: 0,
@@ -218,7 +525,7 @@ function handlePacket(packet, clientId, setLogin) {
           worlds: [
             {
               id: 1,
-              name: 'Test World',
+              name: 'Local World',
               onlinePlayers: 1,
               capacity: 100
             }
@@ -226,11 +533,11 @@ function handlePacket(packet, clientId, setLogin) {
           selectedWorldId: 1,
           player: {
             id: 1,
-            login: 'test',
+            login: 'Player',
             level: 1,
             xp: 0,
-            gold: 1000,
-            cash: 100,
+            gold: 10000,
+            cash: 1000,
             energy: 100,
             maxEnergy: 100,
             location: {
@@ -458,6 +765,14 @@ function handlePacket(packet, clientId, setLogin) {
 // START ALL SERVERS
 // ============================================
 function startServers() {
+  console.log('\n========================================');
+  console.log('  FISHAO Local Server Started!');
+  console.log('========================================');
+  console.log(`  Web Interface: http://127.0.0.1:${HTTP_PORT}`);
+  console.log(`  Game TCP Port: ${TCP_PORT}`);
+  console.log(`  Policy Port:   ${POLICY_PORT}`);
+  console.log('========================================\n');
+  
   // Start HTTP server
   httpServer.listen(HTTP_PORT, () => {
     console.log(`[HTTP] Server running on http://127.0.0.1:${HTTP_PORT}`);
@@ -472,14 +787,6 @@ function startServers() {
   tcpServer.listen(TCP_PORT, () => {
     console.log(`[TCP] Game server running on port ${TCP_PORT}`);
   });
-  
-  console.log('\n========================================');
-  console.log('  FISHAO Local Server Started!');
-  console.log('========================================');
-  console.log(`  Web Interface: http://127.0.0.1:${HTTP_PORT}`);
-  console.log(`  Game TCP Port: ${TCP_PORT}`);
-  console.log(`  Policy Port:   ${POLICY_PORT}`);
-  console.log('========================================\n');
 }
 
 // Handle errors for ports that might require elevated privileges
